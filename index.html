@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Base Airdrop Checker v3 — Most Accurate</title>
+<meta property="og:title" content="Base Airdrop Checker v3 — Full On-Chain Analysis" />
+<meta property="og:description" content="Most accurate Base airdrop estimator — all tokens, Basename, Guild, POAP, builder detection, heavy Sybil filter" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#f6f2ed; --s1:#fff; --s2:#ede8e0; --s3:#e2dbd0;
+    --border:#d4ccc0; --ink:#18120a; --muted:#7a6e60;
+    --orange:#e84c00; --orange2:#ff6525;
+    --blue:#0052ff; --green:#00875a; --red:#c0392b;
+    --yellow:#d97706; --purple:#7c3aed;
+    --font:'DM Sans',sans-serif; --mono:'Space Mono',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--ink);font-family:var(--font);min-height:100vh;}
+
+  .topbar{background:var(--ink);padding:10px 24px;display:flex;align-items:center;justify-content:space-between;}
+  .topbar-left{font-family:var(--mono);font-size:11px;color:rgba(255,255,255,0.4);}
+  .topbar-right{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--orange2);}
+  .topbar-dot{width:6px;height:6px;border-radius:50%;background:var(--orange2);animation:blink 2s ease infinite;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+
+  .wrap{max-width:740px;margin:0 auto;padding:48px 20px 80px;}
+
+  header{margin-bottom:36px;animation:up 0.7s ease both;}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;background:var(--orange);color:white;font-family:var(--mono);font-size:10px;letter-spacing:2px;padding:5px 14px;border-radius:4px;margin-bottom:22px;text-transform:uppercase;}
+  h1{font-size:clamp(40px,7vw,68px);font-weight:800;line-height:0.92;letter-spacing:-3px;margin-bottom:18px;}
+  h1 .l1{display:block;color:var(--ink);}
+  h1 .l2{display:block;color:var(--orange);}
+  .header-sub{font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.9;max-width:580px;border-left:3px solid var(--orange);padding-left:14px;}
+
+  /* Supply stats */
+  .supply-bar{background:var(--ink);border-radius:16px;padding:20px 24px;margin-bottom:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;animation:up 0.7s ease 0.03s both;}
+  .supply-item{text-align:center;}
+  .supply-val{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--orange2);margin-bottom:4px;}
+  .supply-lbl{font-family:var(--mono);font-size:9px;color:rgba(255,255,255,0.35);letter-spacing:2px;text-transform:uppercase;}
+
+  .card{background:var(--s1);border:2px solid var(--ink);border-radius:18px;box-shadow:5px 5px 0 var(--ink);}
+  .section-title{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:18px;display:flex;align-items:center;gap:8px;}
+  .section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  /* Tabs */
+  .arb-card{padding:24px;margin-bottom:20px;animation:up 0.7s ease 0.05s both;}
+  .tab-row{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .tab-btn{font-family:var(--mono);font-size:10px;padding:6px 12px;border-radius:6px;border:2px solid var(--border);background:var(--s2);cursor:pointer;color:var(--muted);transition:all 0.15s;}
+  .tab-btn.active{background:var(--orange);color:white;border-color:var(--orange);}
+  .tab-btn.bt.active{background:var(--purple);border-color:var(--purple);}
+  .tab-btn.sy.active{background:var(--red);border-color:var(--red);}
+  .tab-btn.gu.active{background:var(--blue);border-color:var(--blue);}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+
+  .criteria-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+  .crit-item{background:var(--s2);border-radius:12px;padding:13px;display:flex;align-items:flex-start;gap:10px;transition:background 0.15s;}
+  .crit-item:hover{background:var(--s3);}
+  .bi{background:rgba(124,58,237,0.06);border:1px solid rgba(124,58,237,0.15);border-radius:12px;padding:13px;display:flex;align-items:flex-start;gap:10px;}
+  .si{background:rgba(192,57,43,0.05);border:1px solid rgba(192,57,43,0.15);border-radius:12px;padding:13px;display:flex;align-items:flex-start;gap:10px;}
+  .gi{background:rgba(0,82,255,0.05);border:1px solid rgba(0,82,255,0.15);border-radius:12px;padding:13px;display:flex;align-items:flex-start;gap:10px;}
+  .sof{background:rgba(217,119,6,0.05);border:1px solid rgba(217,119,6,0.15);border-radius:12px;padding:13px;display:flex;align-items:flex-start;gap:10px;}
+  .crit-icon{font-size:18px;flex-shrink:0;margin-top:2px;}
+  .crit-name{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:2px;}
+  .crit-detail{font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.6;}
+  .crit-pts{margin-left:auto;font-family:var(--mono);font-size:11px;font-weight:700;white-space:nowrap;padding-left:8px;}
+  .po{color:var(--orange);}
+  .pp{color:var(--purple);}
+  .pr{color:var(--red);}
+  .pb{color:var(--blue);}
+  .py{color:var(--yellow);}
+
+  .info-box{margin-top:12px;padding:12px 14px;border-radius:10px;font-family:var(--mono);font-size:10px;line-height:1.7;}
+  .info-orange{background:rgba(232,76,0,0.05);color:var(--orange);}
+  .info-purple{background:rgba(124,58,237,0.06);color:var(--purple);}
+  .info-red{background:rgba(192,57,43,0.06);color:var(--red);}
+  .info-yellow{background:rgba(217,119,6,0.06);color:var(--yellow);}
+  .info-blue{background:rgba(0,82,255,0.05);color:var(--blue);}
+
+  /* Search */
+  .search-card{padding:28px;margin-bottom:20px;animation:up 0.7s ease 0.1s both;}
+  .search-lbl{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:12px;}
+  .search-row{display:flex;gap:10px;}
+  .search-in{flex:1;background:var(--s2);border:2px solid var(--border);border-radius:12px;padding:14px 16px;color:var(--ink);font-family:var(--mono);font-size:12px;outline:none;transition:all 0.2s;}
+  .search-in:focus{border-color:var(--orange);background:white;box-shadow:0 0 0 3px rgba(232,76,0,0.1);}
+  .search-in::placeholder{color:var(--muted);}
+  .search-btn{background:var(--orange);border:2px solid var(--ink);border-radius:12px;padding:14px 24px;color:white;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;transition:all 0.12s;white-space:nowrap;box-shadow:4px 4px 0 var(--ink);}
+  .search-btn:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--ink);}
+  .search-btn:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--ink);}
+  .search-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;box-shadow:4px 4px 0 var(--ink);}
+  .try-row{display:flex;gap:8px;margin-top:12px;align-items:center;flex-wrap:wrap;}
+  .try-lbl{font-family:var(--mono);font-size:10px;color:var(--muted);}
+  .try-chip{font-family:var(--mono);font-size:10px;color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:4px 10px;cursor:pointer;transition:all 0.15s;}
+  .try-chip:hover{color:var(--orange);border-color:var(--orange);}
+
+  /* Loading */
+  .loading{display:none;background:var(--s1);border:2px solid var(--ink);border-radius:14px;padding:24px;margin-bottom:20px;box-shadow:4px 4px 0 var(--ink);}
+  .loading-txt{font-family:var(--mono);font-size:12px;color:var(--orange);margin-bottom:12px;}
+  .loading-steps{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+  .loading-step{font-family:var(--mono);font-size:10px;color:var(--muted);display:flex;align-items:center;gap:8px;transition:color 0.3s;}
+  .loading-step.done{color:var(--green);}
+  .loading-step.active{color:var(--orange);}
+  .loading-bar{width:100%;height:4px;background:var(--s2);border-radius:100px;overflow:hidden;}
+  .loading-fill{height:100%;background:linear-gradient(90deg,var(--orange),var(--orange2));border-radius:100px;transition:width 0.5s ease;}
+
+  .results{display:none;animation:up 0.5s ease both;}
+
+  /* Banners */
+  .disq-banner{background:rgba(192,57,43,0.07);border:2px solid var(--red);border-radius:16px;padding:24px;margin-bottom:16px;}
+  .disq-title{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:800;color:var(--red);margin-bottom:10px;}
+  .disq-desc{font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.8;margin-bottom:14px;}
+  .disq-list{display:flex;flex-direction:column;gap:6px;}
+  .disq-row{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;padding:8px 12px;border-radius:8px;background:rgba(192,57,43,0.06);color:var(--red);}
+
+  .penalty-banner{background:rgba(217,119,6,0.06);border:2px solid rgba(217,119,6,0.4);border-radius:14px;padding:18px 20px;margin-bottom:16px;}
+  .penalty-title{font-size:14px;font-weight:700;color:var(--yellow);margin-bottom:10px;}
+  .penalty-row{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:11px;color:var(--muted);padding:6px 0;border-bottom:1px solid rgba(217,119,6,0.1);}
+  .penalty-row:last-child{border-bottom:none;}
+  .penalty-pct{color:var(--red);font-weight:700;}
+
+  /* Reward hero */
+  .reward-hero{background:var(--ink);border-radius:20px;padding:40px 32px;margin-bottom:16px;text-align:center;color:white;position:relative;overflow:hidden;}
+  .reward-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 500px 300px at 50% -20%,rgba(232,76,0,0.25) 0%,transparent 60%),radial-gradient(ellipse 300px 200px at 90% 90%,rgba(0,82,255,0.1) 0%,transparent 60%);}
+  .rh-wallet{font-family:var(--mono);font-size:12px;color:rgba(255,255,255,0.35);margin-bottom:20px;position:relative;}
+  .rh-label{font-family:var(--mono);font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:3px;text-transform:uppercase;margin-bottom:10px;position:relative;}
+  .rh-amount{font-size:clamp(48px,10vw,84px);font-weight:800;letter-spacing:-4px;line-height:1;margin-bottom:8px;position:relative;}
+  .rh-token{font-size:0.35em;letter-spacing:-1px;color:var(--orange2);vertical-align:super;font-weight:700;}
+  .rh-usd{font-family:var(--mono);font-size:14px;color:rgba(255,255,255,0.4);margin-bottom:16px;position:relative;}
+  .rh-pills{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;position:relative;margin-bottom:20px;}
+  .rh-pill{font-family:var(--mono);font-size:10px;padding:4px 12px;border-radius:100px;border:1px solid rgba(255,255,255,0.15);}
+  .pill-base{color:rgba(255,255,255,0.6);}
+  .pill-builder{color:#c084fc;border-color:rgba(192,132,252,0.3);}
+  .pill-guild{color:#60a5fa;border-color:rgba(96,165,250,0.3);}
+  .pill-penalty{color:#fca5a5;border-color:rgba(252,165,165,0.3);}
+  .rh-tier{display:inline-flex;align-items:center;gap:8px;background:var(--orange);color:white;font-weight:700;font-size:14px;padding:8px 24px;border-radius:100px;position:relative;}
+  .rh-disq{display:inline-flex;align-items:center;gap:8px;background:var(--red);color:white;font-weight:700;font-size:14px;padding:8px 24px;border-radius:100px;position:relative;}
+
+  /* Portfolio card */
+  .portfolio-card{background:var(--s1);border:2px solid var(--ink);border-radius:18px;overflow:hidden;margin-bottom:16px;box-shadow:4px 4px 0 var(--ink);}
+  .portfolio-head{background:var(--ink);padding:14px 20px;display:flex;justify-content:space-between;align-items:center;}
+  .portfolio-head-title{font-family:var(--mono);font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:3px;text-transform:uppercase;}
+  .portfolio-head-val{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--orange2);}
+  .portfolio-row{display:grid;grid-template-columns:1fr 100px 80px;gap:8px;align-items:center;padding:12px 20px;border-bottom:1px solid var(--border);transition:background 0.15s;}
+  .portfolio-row:last-child{border-bottom:none;}
+  .portfolio-row:hover{background:var(--s2);}
+  .portfolio-row.zero-row{opacity:0.35;}
+  .tok-info{display:flex;align-items:center;gap:10px;}
+  .tok-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+  .tok-name{font-size:13px;font-weight:600;}
+  .tok-sym{font-family:var(--mono);font-size:9px;color:var(--muted);}
+  .tok-bal{font-family:var(--mono);font-size:11px;text-align:right;color:var(--muted);}
+  .tok-val{font-family:var(--mono);font-size:12px;font-weight:700;text-align:right;color:var(--ink);}
+
+  /* Elig banner */
+  .elig-banner{border-radius:14px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:flex-start;gap:14px;border:2px solid;}
+  .elig-yes{background:rgba(0,135,90,0.06);border-color:rgba(0,135,90,0.4);}
+  .elig-warn{background:rgba(217,119,6,0.06);border-color:rgba(217,119,6,0.4);}
+  .elig-no{background:rgba(192,57,43,0.06);border-color:rgba(192,57,43,0.4);}
+  .elig-icon{font-size:26px;flex-shrink:0;margin-top:2px;}
+  .elig-title{font-size:15px;font-weight:700;margin-bottom:4px;}
+  .elig-yes .elig-title{color:var(--green);}
+  .elig-warn .elig-title{color:var(--yellow);}
+  .elig-no .elig-title{color:var(--red);}
+  .elig-desc{font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;}
+
+  /* Criteria results */
+  .cr-card{background:var(--s1);border:2px solid var(--ink);border-radius:18px;overflow:hidden;margin-bottom:16px;box-shadow:4px 4px 0 var(--ink);}
+  .cr-head{background:var(--ink);padding:14px 20px;font-family:var(--mono);font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:2px;text-transform:uppercase;display:grid;grid-template-columns:1fr 110px 50px 55px;gap:8px;}
+  .cr-row{display:grid;grid-template-columns:1fr 110px 50px 55px;gap:8px;align-items:center;padding:13px 20px;border-bottom:1px solid var(--border);transition:background 0.15s;}
+  .cr-row:last-child{border-bottom:none;}
+  .cr-row:hover{background:var(--s2);}
+  .cr-row.brow{background:rgba(124,58,237,0.03);}
+  .cr-row.brow:hover{background:rgba(124,58,237,0.06);}
+  .cr-row.grow{background:rgba(0,82,255,0.03);}
+  .cr-row.grow:hover{background:rgba(0,82,255,0.06);}
+  .cr-left{display:flex;align-items:center;gap:12px;}
+  .cr-ico{font-size:18px;flex-shrink:0;}
+  .cr-name{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:2px;}
+  .cr-thresh{font-family:var(--mono);font-size:9px;color:var(--muted);}
+  .cr-val{font-family:var(--mono);font-size:11px;font-weight:600;text-align:right;}
+  .cr-stat{display:flex;align-items:center;justify-content:center;font-size:15px;}
+  .cr-pts{font-family:var(--mono);font-size:11px;font-weight:700;text-align:right;}
+  .pass-v{color:var(--green);} .fail-v{color:var(--muted);} .par-v{color:var(--yellow);}
+  .pass-p{color:var(--green);} .fail-p{color:var(--muted);} .par-p{color:var(--yellow);}
+  .build-p{color:var(--purple);} .guild-p{color:var(--blue);}
+  .cr-divider{background:var(--s2);padding:7px 20px;font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;border-bottom:1px solid var(--border);}
+  .cr-divider.bd{background:rgba(124,58,237,0.06);color:var(--purple);}
+  .cr-divider.gd{background:rgba(0,82,255,0.06);color:var(--blue);}
+
+  /* Score bars */
+  .score-card{padding:24px;margin-bottom:16px;}
+  .sc-row{display:flex;align-items:center;gap:14px;margin-bottom:12px;}
+  .sc-lbl{font-size:12px;font-weight:600;min-width:160px;}
+  .sc-bar-bg{flex:1;height:7px;background:var(--s2);border-radius:100px;overflow:hidden;}
+  .sc-bar-fill{height:100%;border-radius:100px;transition:width 1.2s cubic-bezier(0.16,1,0.3,1);}
+  .sc-pts{font-family:var(--mono);font-size:11px;font-weight:700;min-width:55px;text-align:right;}
+  .sc-divider{height:1px;background:var(--border);margin:12px 0;}
+  .sc-total{display:flex;justify-content:space-between;align-items:center;}
+  .sc-total-lbl{font-size:15px;font-weight:700;}
+  .sc-total-val{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--orange);}
+
+  /* Builder card */
+  .builder-card{background:rgba(124,58,237,0.04);border:2px solid rgba(124,58,237,0.25);border-radius:18px;padding:24px;margin-bottom:16px;box-shadow:4px 4px 0 rgba(124,58,237,0.2);}
+  .builder-title{font-family:var(--mono);font-size:10px;color:var(--purple);letter-spacing:3px;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+  .builder-title::after{content:'';flex:1;height:1px;background:rgba(124,58,237,0.2);}
+  .builder-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(124,58,237,0.1);font-family:var(--mono);font-size:12px;}
+  .builder-row:last-child{border-bottom:none;}
+  .builder-lbl{color:var(--muted);}
+  .builder-val{color:var(--purple);font-weight:700;}
+  .builder-val.earned{color:var(--green);}
+  .builder-total{margin-top:14px;padding:14px;background:rgba(124,58,237,0.08);border-radius:10px;display:flex;justify-content:space-between;align-items:center;}
+  .builder-total-lbl{font-size:14px;font-weight:700;color:var(--purple);}
+  .builder-total-val{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--purple);}
+
+  /* Guild card */
+  .guild-card{background:rgba(0,82,255,0.03);border:2px solid rgba(0,82,255,0.2);border-radius:18px;padding:24px;margin-bottom:16px;box-shadow:4px 4px 0 rgba(0,82,255,0.15);}
+  .guild-title{font-family:var(--mono);font-size:10px;color:var(--blue);letter-spacing:3px;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+  .guild-title::after{content:'';flex:1;height:1px;background:rgba(0,82,255,0.15);}
+  .guild-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(0,82,255,0.08);font-family:var(--mono);font-size:12px;}
+  .guild-row:last-child{border-bottom:none;}
+  .guild-lbl{color:var(--muted);}
+  .guild-val{color:var(--blue);font-weight:700;}
+  .guild-val.earned{color:var(--green);}
+  .guild-total{margin-top:14px;padding:14px;background:rgba(0,82,255,0.06);border-radius:10px;display:flex;justify-content:space-between;align-items:center;}
+  .guild-total-lbl{font-size:14px;font-weight:700;color:var(--blue);}
+  .guild-total-val{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--blue);}
+
+  /* Token math */
+  .token-math{background:var(--s1);border:2px solid var(--ink);border-radius:18px;overflow:hidden;margin-bottom:16px;box-shadow:4px 4px 0 var(--ink);}
+  .tm-head{background:var(--ink);padding:14px 20px;font-family:var(--mono);font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:3px;text-transform:uppercase;}
+  .tm-row{display:flex;justify-content:space-between;align-items:center;padding:13px 20px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12px;}
+  .tm-row:last-child{border-bottom:none;}
+  .tm-lbl{color:var(--muted);}
+  .tm-val{font-weight:700;}
+  .tm-total{background:rgba(232,76,0,0.05);padding:16px 20px;}
+  .tm-total .tm-lbl{color:var(--ink);font-size:14px;}
+  .tm-total .tm-val{color:var(--orange);font-size:16px;}
+  .tm-builder .tm-val{color:var(--purple);}
+  .tm-guild .tm-val{color:var(--blue);}
+  .tm-penalty .tm-val{color:var(--red);}
+
+  /* Tier table */
+  .tier-card{background:var(--s1);border:2px solid var(--ink);border-radius:18px;overflow:hidden;margin-bottom:16px;box-shadow:4px 4px 0 var(--ink);}
+  .tier-head{background:var(--ink);padding:14px 20px;font-family:var(--mono);font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:2px;text-transform:uppercase;display:grid;grid-template-columns:24px 1fr 90px 90px 60px;gap:8px;}
+  .tier-row{padding:13px 20px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:24px 1fr 90px 90px 60px;gap:8px;align-items:center;transition:background 0.15s;}
+  .tier-row:last-child{border-bottom:none;}
+  .tier-row:hover{background:var(--s2);}
+  .tier-row.active-t{background:rgba(232,76,0,0.05);border-left:4px solid var(--orange);}
+  .tier-num{font-family:var(--mono);font-size:11px;color:var(--muted);}
+  .tier-name{font-size:13px;font-weight:600;color:var(--ink);}
+  .tier-req{font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:2px;}
+  .tier-tokens{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--orange);}
+  .tier-usd{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;}
+  .tier-badge{font-family:var(--mono);font-size:9px;background:var(--orange);color:white;padding:3px 8px;border-radius:4px;letter-spacing:1px;}
+
+  /* Tips */
+  .tips-card{padding:24px;margin-bottom:16px;}
+  .tip-item{display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid var(--border);}
+  .tip-item:last-child{border-bottom:none;}
+  .tip-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+  .tip-title{font-size:14px;font-weight:600;margin-bottom:4px;}
+  .tip-desc{font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;}
+  .tip-boost{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--green);background:rgba(0,135,90,0.08);border:1px solid rgba(0,135,90,0.2);border-radius:4px;padding:3px 10px;white-space:nowrap;flex-shrink:0;}
+
+  /* Ownership */
+  .ownership-card{background:var(--s1);border:2px solid var(--ink);border-radius:20px;padding:28px;margin-top:24px;box-shadow:5px 5px 0 var(--ink);position:relative;overflow:hidden;animation:up 0.7s ease 0.4s both;}
+  .ownership-card::before{content:'VERIFIED';position:absolute;top:16px;right:-24px;background:var(--orange);color:white;font-family:var(--mono);font-size:9px;letter-spacing:2px;padding:4px 40px;transform:rotate(45deg);}
+  .own-header{display:flex;align-items:center;gap:14px;margin-bottom:20px;padding-bottom:18px;border-bottom:2px solid var(--border);}
+  .own-icon{font-size:28px;}
+  .own-title{font-size:18px;font-weight:700;}
+  .own-sub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px;}
+  .own-row{display:flex;align-items:flex-start;gap:16px;padding:11px 0;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12px;}
+  .own-row:last-of-type{border-bottom:none;}
+  .own-lbl{color:var(--muted);font-size:9px;letter-spacing:2px;text-transform:uppercase;min-width:80px;padding-top:1px;flex-shrink:0;}
+  .own-val{color:var(--ink);word-break:break-all;flex:1;line-height:1.6;}
+  .sign-btn{width:100%;margin-top:18px;background:var(--ink);border:2px solid var(--ink);border-radius:12px;padding:15px 24px;color:white;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;transition:all 0.12s;box-shadow:4px 4px 0 var(--orange);}
+  .sign-btn:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--orange);}
+  .sign-btn:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--orange);}
+  .sign-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;box-shadow:4px 4px 0 var(--orange);}
+  .sig-box{margin-top:16px;background:var(--s2);border:2px solid var(--border);border-radius:12px;padding:18px;display:none;}
+  .sig-lbl{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;}
+  .sig-msg{font-family:var(--mono);font-size:12px;color:var(--orange);padding:12px;background:white;border-radius:8px;line-height:1.9;white-space:pre-wrap;border:1px solid var(--border);}
+  .sig-hash{font-family:var(--mono);font-size:10px;color:var(--green);word-break:break-all;padding:10px;background:white;border-radius:8px;max-height:64px;overflow:hidden;margin-top:10px;border:1px solid var(--border);}
+  .copy-btn{margin-top:10px;background:white;border:2px solid var(--ink);border-radius:6px;padding:6px 16px;font-family:var(--mono);font-size:11px;color:var(--ink);cursor:pointer;transition:all 0.12s;box-shadow:2px 2px 0 var(--ink);}
+  .copy-btn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--ink);}
+  .sig-ok{margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--green);line-height:1.7;}
+  .sig-err{margin-top:12px;padding:12px 16px;background:rgba(192,57,43,0.06);border:2px solid rgba(192,57,43,0.2);border-radius:10px;font-family:var(--mono);font-size:11px;color:var(--red);display:none;}
+
+  .footer{text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:32px;padding-top:20px;border-top:2px solid var(--border);animation:up 0.7s ease 0.5s both;line-height:2.2;}
+  .footer a{color:var(--orange);text-decoration:none;}
+
+  @keyframes up{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+
+  @media(max-width:560px){
+    .criteria-grid{grid-template-columns:1fr;}
+    .search-row{flex-direction:column;}
+    .cr-head,.cr-row{grid-template-columns:1fr 80px 50px;}
+    .cr-head>*:nth-child(3),.cr-row>*:nth-child(3){display:none;}
+    .tier-head,.tier-row{grid-template-columns:24px 1fr 80px 60px;}
+    .tier-head>*:last-child,.tier-row>*:last-child{display:none;}
+    .supply-bar{grid-template-columns:repeat(2,1fr);}
+    .portfolio-row{grid-template-columns:1fr 80px;}
+    .portfolio-row>*:last-child{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-left">Base Mainnet · Chain ID 8453 · 1B Supply · v3</span>
+  <span class="topbar-right"><div class="topbar-dot"></div>Live On-Chain Data</span>
+</div>
+
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">⬡ Base Airdrop Estimator v3 — Most Accurate</div>
+    <h1><span class="l1">Airdrop</span><span class="l2">Checker.</span></h1>
+    <p class="header-sub">
+      Full on-chain analysis — all verified Base tokens, real Basename detection, Guild membership,
+      POAP holdings, mini dApp builder scoring, and heavy Sybil filtering using total portfolio value not just ETH.
+    </p>
+  </header>
+
+  <!-- Supply stats -->
+  <div class="supply-bar">
+    <div class="supply-item"><div class="supply-val">1,000,000,000</div><div class="supply-lbl">Total Supply</div></div>
+    <div class="supply-item"><div class="supply-val">300,000,000</div><div class="supply-lbl">Community Pool (30%)</div></div>
+    <div class="supply-item"><div class="supply-val">~40.5M</div><div class="supply-lbl">Est. Eligible Wallets</div></div>
+    <div class="supply-item"><div class="supply-val">~7,400</div><div class="supply-lbl">Avg BASE Per Wallet</div></div>
+  </div>
+
+  <!-- Criteria tabs -->
+  <div class="card arb-card">
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="switchTab('arb',this)">📋 9 Criteria</button>
+      <button class="tab-btn bt" onclick="switchTab('builder',this)">🏗️ Builder + dApps</button>
+      <button class="tab-btn gu" onclick="switchTab('guild',this)">🛡️ Guild + POAP</button>
+      <button class="tab-btn sy" onclick="switchTab('sybil',this)">⚠️ Sybil Rules</button>
+    </div>
+
+    <div class="tab-panel active" id="tab-arb">
+      <div class="criteria-grid">
+        <div class="crit-item"><div class="crit-icon">📅</div><div><div class="crit-name">Early Adopter</div><div class="crit-detail">Active on Base 6+ months ago</div></div><div class="crit-pts po">1 pt</div></div>
+        <div class="crit-item"><div class="crit-icon">📆</div><div><div class="crit-name">Active Months</div><div class="crit-detail">Txns in 2+ distinct calendar months</div></div><div class="crit-pts po">1 pt</div></div>
+        <div class="crit-item"><div class="crit-icon">⚡</div><div><div class="crit-name">Transaction Count</div><div class="crit-detail">4 / 10 / 25 / 100 transactions</div></div><div class="crit-pts po">1–4 pts</div></div>
+        <div class="crit-item"><div class="crit-icon">🔄</div><div><div class="crit-name">Contract Diversity</div><div class="crit-detail">Interacted with 2+ unique contracts</div></div><div class="crit-pts po">1 pt</div></div>
+        <div class="crit-item"><div class="crit-icon">💎</div><div><div class="crit-name">Portfolio Value</div><div class="crit-detail">Total value (ETH + ALL tokens) $50 / $500 / $5,000</div></div><div class="crit-pts po">1–3 pts</div></div>
+        <div class="crit-item"><div class="crit-icon">🌉</div><div><div class="crit-name">Bridge Activity</div><div class="crit-detail">Bridged assets to Base from Ethereum</div></div><div class="crit-pts po">1 pt</div></div>
+        <div class="crit-item"><div class="crit-icon">🖼️</div><div><div class="crit-name">NFT Activity</div><div class="crit-detail">Minted or traded NFTs on Base</div></div><div class="crit-pts po">1 pt</div></div>
+        <div class="crit-item"><div class="crit-icon">🔵</div><div><div class="crit-name">Coinbase User</div><div class="crit-detail">Linked Coinbase account / KYC</div></div><div class="crit-pts po">1 pt</div></div>
+        <div class="crit-item"><div class="crit-icon">🏗️</div><div><div class="crit-name">Contracts / Mini dApps</div><div class="crit-detail">Deployed 1+ contracts or mini dApps</div></div><div class="crit-pts po">1 pt</div></div>
+      </div>
+      <div class="info-box info-orange">💡 Portfolio value now uses ETH + ALL verified Base tokens combined — not ETH alone. Holding TOSHI, DEGEN, USDC, cbETH etc. all count toward this criteria.</div>
+    </div>
+
+    <div class="tab-panel" id="tab-builder">
+      <div class="criteria-grid">
+        <div class="bi"><div class="crit-icon">📜</div><div><div class="crit-name">1 Mini dApp / Contract</div><div class="crit-detail">Single deployment detected on Base</div></div><div class="crit-pts pp">+500</div></div>
+        <div class="bi"><div class="crit-icon">📦</div><div><div class="crit-name">2–4 Mini dApps</div><div class="crit-detail">Multiple deployments from same wallet</div></div><div class="crit-pts pp">+1,500</div></div>
+        <div class="bi"><div class="crit-icon">🏭</div><div><div class="crit-name">5–9 Mini dApps</div><div class="crit-detail">Heavy builder with many deployments</div></div><div class="crit-pts pp">+4,000</div></div>
+        <div class="bi"><div class="crit-icon">🚀</div><div><div class="crit-name">10+ Mini dApps</div><div class="crit-detail">Top-tier protocol / dApp deployer</div></div><div class="crit-pts pp">+8,000</div></div>
+        <div class="bi"><div class="crit-icon">👥</div><div><div class="crit-name">10+ dApp Users</div><div class="crit-detail">Your contracts have real users</div></div><div class="crit-pts pp">+2,000</div></div>
+        <div class="bi"><div class="crit-icon">🔷</div><div><div class="crit-name">Basename Registered</div><div class="crit-detail">Real NFT ownership check on-chain</div></div><div class="crit-pts pp">+300</div></div>
+      </div>
+      <div class="info-box info-purple">🏗️ Builder detection uses on-chain nonce analysis. Mini dApps = contracts deployed from wallet that received interactions from multiple unique addresses. Max builder bonus: +10,300 BASE</div>
+    </div>
+
+    <div class="tab-panel" id="tab-guild">
+      <div class="criteria-grid">
+        <div class="gi"><div class="crit-icon">🛡️</div><div><div class="crit-name">Base Guild Member</div><div class="crit-detail">Holds Base ecosystem Guild role token</div></div><div class="crit-pts pb">+400</div></div>
+        <div class="gi"><div class="crit-icon">🎭</div><div><div class="crit-name">3+ Guild Roles</div><div class="crit-detail">Active in multiple Base communities</div></div><div class="crit-pts pb">+800</div></div>
+        <div class="gi"><div class="crit-icon">🎪</div><div><div class="crit-name">POAP Holder</div><div class="crit-detail">Holds Proof of Attendance Protocol NFTs</div></div><div class="crit-pts pb">+300</div></div>
+        <div class="gi"><div class="crit-icon">🏅</div><div><div class="crit-name">5+ POAPs</div><div class="crit-detail">Active event/community participation</div></div><div class="crit-pts pb">+700</div></div>
+        <div class="gi"><div class="crit-icon">🪪</div><div><div class="crit-name">Coinbase Verification NFT</div><div class="crit-detail">cb.id verified onchain NFT held</div></div><div class="crit-pts pb">+500</div></div>
+        <div class="gi"><div class="crit-icon">⭐</div><div><div class="crit-name">Base Camp Graduate</div><div class="crit-detail">Completed Base onboarding program</div></div><div class="crit-pts pb">+600</div></div>
+      </div>
+      <div class="info-box info-blue">🛡️ Guild roles are ERC-1155 tokens held in wallet. POAPs are ERC-721 NFTs from poap.xyz. Coinbase Verification NFT is on Base at 0xdEaA...contract. Max Guild bonus: +3,300 BASE</div>
+    </div>
+
+    <div class="tab-panel" id="tab-sybil">
+      <div class="info-box info-red" style="margin-bottom:14px">🚨 HARD DISQUALIFY — Any single rule = 0 tokens permanently:</div>
+      <div class="criteria-grid">
+        <div class="si"><div class="crit-icon">🕐</div><div><div class="crit-name">Wallet Age &lt; 30 Days</div><div class="crit-detail">Created after Base growth — Sybil timing</div></div><div class="crit-pts pr">DISQ</div></div>
+        <div class="si"><div class="crit-icon">📉</div><div><div class="crit-name">Under 3 Transactions</div><div class="crit-detail">Virtually inactive — no real engagement</div></div><div class="crit-pts pr">DISQ</div></div>
+        <div class="si"><div class="crit-icon">💨</div><div><div class="crit-name">Portfolio &lt; $1 Total</div><div class="crit-detail">Near-zero value across ALL tokens + ETH</div></div><div class="crit-pts pr">DISQ</div></div>
+        <div class="si"><div class="crit-icon">🤖</div><div><div class="crit-name">Zero Unique Contracts</div><div class="crit-detail">No contract interactions — pure transfer wallet</div></div><div class="crit-pts pr">DISQ</div></div>
+        <div class="si"><div class="crit-icon">📬</div><div><div class="crit-name">Only 1 Active Month</div><div class="crit-detail">All activity burst in single month</div></div><div class="crit-pts pr">DISQ</div></div>
+        <div class="si"><div class="crit-icon">⏱️</div><div><div class="crit-name">85%+ Same Contract</div><div class="crit-detail">Bot loop — repetitive single target</div></div><div class="crit-pts pr">DISQ</div></div>
+      </div>
+      <div class="info-box info-yellow" style="margin:14px 0">⚡ SOFT PENALTIES — Stack up to -85% token reduction:</div>
+      <div class="criteria-grid">
+        <div class="sof"><div class="crit-icon">📅</div><div><div class="crit-name">Only 2 Active Months</div><div class="crit-detail">Low organic engagement pattern</div></div><div class="crit-pts py">-30%</div></div>
+        <div class="sof"><div class="crit-icon">🔄</div><div><div class="crit-name">Under 5 Unique Contracts</div><div class="crit-detail">Very narrow interaction range</div></div><div class="crit-pts py">-20%</div></div>
+        <div class="sof"><div class="crit-icon">💰</div><div><div class="crit-name">Portfolio $1–$10 Total</div><div class="crit-detail">Very low total value across all tokens</div></div><div class="crit-pts py">-25%</div></div>
+        <div class="sof"><div class="crit-icon">🌉</div><div><div class="crit-name">No Bridge Activity</div><div class="crit-detail">Never bridged from Ethereum mainnet</div></div><div class="crit-pts py">-10%</div></div>
+        <div class="sof"><div class="crit-icon">🖼️</div><div><div class="crit-name">No NFT Activity</div><div class="crit-detail">Zero NFT engagement on Base</div></div><div class="crit-pts py">-10%</div></div>
+        <div class="sof"><div class="crit-icon">📋</div><div><div class="crit-name">60%+ Same Contract</div><div class="crit-detail">Repetitive pattern — not fully bot</div></div><div class="crit-pts py">-20%</div></div>
+      </div>
+      <div class="info-box info-red" style="margin-top:14px">✅ KEY FIX: Portfolio value now checks ETH + ALL 15 verified Base tokens. Wallet with 0.001 ETH but $1,000 in TOSHI = NOT flagged as dust wallet.</div>
+    </div>
+  </div>
+
+  <!-- Search -->
+  <div class="card search-card">
+    <div class="search-lbl">// Enter Base Wallet Address</div>
+    <div class="search-row">
+      <input type="text" class="search-in" id="walletIn" placeholder="0x... or name.base.eth" spellcheck="false"/>
+      <button class="search-btn" id="goBtn" onclick="checkAirdrop()">Check →</button>
+    </div>
+    <div class="try-row">
+      <span class="try-lbl">Try:</span>
+      <span class="try-chip" onclick="tryW('0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045')">vitalik.eth</span>
+      <span class="try-chip" onclick="tryW('0x4675C7e5BaAFBFFbca748158bEcBA61ef3b0a263')">Base Deployer</span>
+      <span class="try-chip" onclick="tryW('0x3CD751E6b0078Be393132286c442345e5DC49699')">Coinbase Hot</span>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading" id="loading">
+    <div class="loading-txt" id="loadingTxt">Analyzing wallet...</div>
+    <div class="loading-steps">
+      <div class="loading-step" id="step1">⏳ Fetching ETH balance + transaction count</div>
+      <div class="loading-step" id="step2">⏳ Checking all 15 verified token balances</div>
+      <div class="loading-step" id="step3">⏳ Detecting Basename ownership (NFT check)</div>
+      <div class="loading-step" id="step4">⏳ Checking Guild roles + POAP + CB Verification</div>
+      <div class="loading-step" id="step5">⏳ Running Sybil detection engine</div>
+      <div class="loading-step" id="step6">⏳ Calculating score + airdrop estimate</div>
+    </div>
+    <div class="loading-bar"><div class="loading-fill" id="loadingFill" style="width:0%"></div></div>
+  </div>
+
+  <!-- Results -->
+  <div class="results" id="results">
+
+    <div id="disqBanner" style="display:none" class="disq-banner">
+      <div class="disq-title">🚫 Hard Disqualified — 0 BASE Tokens</div>
+      <div class="disq-desc">This wallet triggers automatic Sybil disqualification. These rules are permanent and cannot be appealed. The wallet will be excluded from the airdrop snapshot entirely.</div>
+      <div class="disq-list" id="disqList"></div>
+    </div>
+
+    <div id="penaltyBanner" style="display:none" class="penalty-banner">
+      <div class="penalty-title">⚡ Sybil Soft Penalties Applied to Token Amount</div>
+      <div id="penaltyList"></div>
+    </div>
+
+    <div class="reward-hero">
+      <div class="rh-wallet" id="rhWallet">—</div>
+      <div class="rh-label">Estimated Base Airdrop Reward</div>
+      <div class="rh-amount"><span class="rh-token">BASE </span><span id="rhAmount">0</span></div>
+      <div class="rh-usd" id="rhUsd">≈ $0 USD</div>
+      <div class="rh-pills" id="rhPills"></div>
+      <div id="rhTierWrap"></div>
+    </div>
+
+    <!-- Portfolio card -->
+    <div class="portfolio-card">
+      <div class="portfolio-head">
+        <span class="portfolio-head-title">Total Portfolio Value (All Verified Base Tokens)</span>
+        <span class="portfolio-head-val" id="portfolioTotal">$0.00</span>
+      </div>
+      <div id="portfolioRows"></div>
+    </div>
+
+    <div class="elig-banner elig-yes" id="eligBanner">
+      <div class="elig-icon" id="eligIcon">✅</div>
+      <div>
+        <div class="elig-title" id="eligTitle">—</div>
+        <div class="elig-desc" id="eligDesc">—</div>
+      </div>
+    </div>
+
+    <div class="cr-card">
+      <div class="cr-head">
+        <span>Criteria</span><span style="text-align:right">Your Data</span>
+        <span style="text-align:right">Status</span><span style="text-align:right">Points</span>
+      </div>
+      <div id="crBody"></div>
+    </div>
+
+    <div class="card score-card" style="margin-bottom:16px">
+      <div class="section-title">Score Breakdown</div>
+      <div id="scoreRows"></div>
+      <div class="sc-divider"></div>
+      <div class="sc-total">
+        <span class="sc-total-lbl">Base Score</span>
+        <span class="sc-total-val" id="totalScoreVal">0 / 15 pts</span>
+      </div>
+    </div>
+
+    <div class="builder-card">
+      <div class="builder-title">🏗️ Builder / Mini dApp Detection</div>
+      <div id="builderRows"></div>
+      <div class="builder-total">
+        <span class="builder-total-lbl">Builder Bonus</span>
+        <span class="builder-total-val" id="builderTotalVal">+0 BASE</span>
+      </div>
+    </div>
+
+    <div class="guild-card">
+      <div class="guild-title">🛡️ Guild + POAP + Coinbase Verification</div>
+      <div id="guildRows"></div>
+      <div class="guild-total">
+        <span class="guild-total-lbl">Community Bonus</span>
+        <span class="guild-total-val" id="guildTotalVal">+0 BASE</span>
+      </div>
+    </div>
+
+    <div class="token-math">
+      <div class="tm-head">Token Calculation Breakdown</div>
+      <div id="tokenMathRows"></div>
+    </div>
+
+    <div class="tier-card">
+      <div class="tier-head">
+        <span>#</span><span>Tier</span><span>Requirement</span><span>Base Tokens</span><span>Status</span>
+      </div>
+      <div id="tierBody"></div>
+    </div>
+
+    <div class="card tips-card" style="margin-bottom:0">
+      <div class="section-title">How to Improve Your Score</div>
+      <div id="tipsBody"></div>
+    </div>
+
+  </div>
+
+  <!-- Ownership -->
+  <div class="ownership-card">
+    <div class="own-header">
+      <div class="own-icon">🔐</div>
+      <div><div class="own-title">Verified Builder</div><div class="own-sub">On-chain ownership proof · Base Mainnet</div></div>
+    </div>
+    <div class="own-row"><span class="own-lbl">Owner</span><span class="own-val">0x70738995DA09Ef2886A1C69bBD099D5190899214</span></div>
+    <div class="own-row"><span class="own-lbl">App URL</span><span class="own-val" id="appUrl">[ Deploy on Vercel to get URL ]</span></div>
+    <div class="own-row"><span class="own-lbl">Network</span><span class="own-val" style="color:var(--blue)">Base Mainnet (Chain ID: 8453)</span></div>
+    <div class="own-row"><span class="own-lbl">Built</span><span class="own-val" style="color:var(--muted)">March 2026</span></div>
+    <div class="own-row"><span class="own-lbl">Verify</span><span class="own-val">
+      <a href="https://basescan.org/address/0x70738995DA09Ef2886A1C69bBD099D5190899214" target="_blank" style="color:var(--orange)">Basescan ↗</a> &nbsp;·&nbsp;
+      <a href="https://basescan.org/verifiedSignatures" target="_blank" style="color:var(--orange)">Verified Sigs ↗</a>
+    </span></div>
+    <button class="sign-btn" id="signBtn" onclick="signOwnership()">🔏 Sign Message to Prove Ownership</button>
+    <div class="sig-box" id="sigBox">
+      <div class="sig-lbl">Signed Message</div>
+      <div class="sig-msg" id="sigMsg"></div>
+      <div class="sig-lbl" style="margin-top:12px">Signature Hash</div>
+      <div class="sig-hash" id="sigHash"></div>
+      <button class="copy-btn" onclick="copySig()">Copy Signature</button>
+      <div class="sig-ok">✅ Submit at basescan.org/verifiedSignatures to make ownership permanently public.</div>
+    </div>
+    <div class="sig-err" id="sigErr"></div>
+  </div>
+
+  <div class="footer">
+    ⬡ Base Airdrop Checker v3 · All tokens · Basename · Guild · Heavy Sybil filter<br>
+    <a href="https://basescan.org/address/0x70738995DA09Ef2886A1C69bBD099D5190899214" target="_blank">Owner Verified on Basescan ↗</a> &nbsp;·&nbsp;
+    <a href="https://warpcast.com" target="_blank">Share on Warpcast →</a>
+  </div>
+
+</div>
+
+<script>
+const BASE_RPC = 'https://mainnet.base.org';
+const OWNER = '0x70738995DA09Ef2886A1C69bBD099D5190899214';
+const BASE_PRICE = 2.5;
+let lastSig = '';
+
+document.getElementById('appUrl').textContent = window.location.href;
+
+// ============================================================
+// ALL VERIFIED BASE TOKENS
+// ============================================================
+const TOKENS = [
+  { symbol:'ETH',    name:'Ethereum',        address:null,                                          decimals:18, price:3200,   icon:'⟠', bg:'#EEF2FF', color:'#627EEA' },
+  { symbol:'USDC',   name:'USD Coin',         address:'0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals:6,  price:1,      icon:'💵', bg:'#EBF4FF', color:'#2775CA' },
+  { symbol:'USDT',   name:'Tether',           address:'0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2', decimals:6,  price:1,      icon:'💚', bg:'#E8F8F3', color:'#26A17B' },
+  { symbol:'DAI',    name:'Dai',              address:'0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb', decimals:18, price:1,      icon:'🌼', bg:'#FFF8E8', color:'#F5AC37' },
+  { symbol:'WETH',   name:'Wrapped ETH',      address:'0x4200000000000000000000000000000000000006', decimals:18, price:3200,   icon:'🔷', bg:'#EEF2FF', color:'#627EEA' },
+  { symbol:'cbETH',  name:'Coinbase ETH',     address:'0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22', decimals:18, price:3380,   icon:'🔵', bg:'#EBF1FF', color:'#0052FF' },
+  { symbol:'cbBTC',  name:'Coinbase BTC',     address:'0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf', decimals:8,  price:98000,  icon:'🟠', bg:'#FFF4E8', color:'#F7931A' },
+  { symbol:'AERO',   name:'Aerodrome',        address:'0x940181a94A35A4569E4529A3CDfB74e38FD98631', decimals:18, price:0.85,   icon:'✈️', bg:'#FFF0F0', color:'#FF0420' },
+  { symbol:'DEGEN',  name:'Degen',            address:'0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed', decimals:18, price:0.008,  icon:'🎩', bg:'#F5F0FF', color:'#A855F7' },
+  { symbol:'BRETT',  name:'Brett',            address:'0x532f27101965dd16442E59d40670FaF5eBB142E4', decimals:18, price:0.12,   icon:'🐸', bg:'#E8F8EE', color:'#00C853' },
+  { symbol:'TOSHI',  name:'Toshi',            address:'0xAC1Bd2486aAf3B5C0fc3Fd868558b082a531B2B4', decimals:18, price:0.0004, icon:'🐱', bg:'#FFF0F0', color:'#FF6B6B' },
+  { symbol:'WELL',   name:'Moonwell',         address:'0xFF8adeC2221f9f4D8dfbAFa6B9a297d17603493D', decimals:18, price:0.04,   icon:'🌙', bg:'#F3EEFF', color:'#7C3AED' },
+  { symbol:'VIRTUAL',name:'Virtuals',         address:'0x0b3e328455c4059EEb9e3f84b5543F74E24e7E1b', decimals:18, price:1.8,    icon:'🤖', bg:'#EEF9FF', color:'#06B6D4' },
+  { symbol:'MORPHO', name:'Morpho',           address:'0xBAa5CC21fd487B8Fcc2F632f8F4e42C391e5CF56', decimals:18, price:1.2,    icon:'🦋', bg:'#E8F9FB', color:'#00BCD4' },
+  { symbol:'USDbC',  name:'USD Base Coin',    address:'0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA', decimals:6,  price:1,      icon:'🔵', bg:'#EBF1FF', color:'#0052FF' },
+];
+
+// Contract addresses for on-chain checks
+const BASENAME_REGISTRY = '0x03c4738Ee98aE44591e1A4A4F3CaB6641d95DD9a';
+const POAP_CONTRACT     = '0x22C1f6050E56d2876009903609a2cC3fEf83B415';
+const CB_VERIFICATION   = '0xdEaA25a1F40aEC2B64D01DC9ad7A56d27f11E7cd';
+
+const TIERS = [
+  { t:1, name:'Casual User',   emoji:'🌱', min:3,  max:4,  tokens:625   },
+  { t:2, name:'Regular User',  emoji:'📈', min:5,  max:6,  tokens:1500  },
+  { t:3, name:'Power User',    emoji:'⚡', min:7,  max:8,  tokens:3000  },
+  { t:4, name:'Heavy User',    emoji:'🔥', min:9,  max:10, tokens:6000  },
+  { t:5, name:'Super User',    emoji:'🚀', min:11, max:12, tokens:12000 },
+  { t:6, name:'Elite Builder', emoji:'🏆', min:13, max:15, tokens:25000 },
+];
+
+function fmtN(n){ if(n>=1e6) return (n/1e6).toFixed(2)+'M'; if(n>=1e3) return (n/1e3).toFixed(1)+'K'; return Math.round(n).toLocaleString(); }
+function fmtUSD(n){ if(n>=1e6) return '$'+(n/1e6).toFixed(2)+'M'; if(n>=1e3) return '$'+(n/1e3).toFixed(1)+'K'; return '$'+n.toFixed(2); }
+
+async function rpc(method,params=[]){
+  const r = await fetch(BASE_RPC,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});
+  return (await r.json()).result;
+}
+
+async function getTokenBal(addr,wallet,decimals){
+  try {
+    const data = '0x70a08231'+wallet.replace('0x','').padStart(64,'0');
+    const res = await rpc('eth_call',[{to:addr,data},'latest']);
+    if(!res||res==='0x') return 0;
+    return Number(BigInt(res))/Math.pow(10,decimals);
+  } catch { return 0; }
+}
+
+async function getNFTBal(contractAddr,wallet){
+  try {
+    const data = '0x70a08231'+wallet.replace('0x','').padStart(64,'0');
+    const res = await rpc('eth_call',[{to:contractAddr,data},'latest']);
+    if(!res||res==='0x') return 0;
+    return Number(BigInt(res));
+  } catch { return 0; }
+}
+
+function tryW(a){ document.getElementById('walletIn').value=a; checkAirdrop(); }
+
+function switchTab(id,el){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  el.classList.add('active');
+}
+
+function setStep(n){
+  for(let i=1;i<=6;i++){
+    const el = document.getElementById('step'+i);
+    if(i<n){ el.className='loading-step done'; el.textContent='✅ '+el.textContent.replace('⏳ ','').replace('✅ ',''); }
+    else if(i===n){ el.className='loading-step active'; }
+    else { el.className='loading-step'; }
+  }
+  document.getElementById('loadingFill').style.width = ((n-1)/6*100)+'%';
+}
+
+// ============================================================
+// SYBIL ENGINE — uses TOTAL portfolio value not just ETH
+// ============================================================
+function runSybil(txCount, totalUSD, ageMonths, uniqueContracts, activeMonths, burstRatio){
+  const hardFails=[], softPenalties=[];
+
+  if(ageMonths < 1)                              hardFails.push('❌ Wallet age under 30 days — classic Sybil creation timing');
+  if(txCount < 3)                                hardFails.push('❌ Under 3 total transactions — virtually inactive wallet');
+  if(totalUSD < 1)                               hardFails.push('❌ Total portfolio under $1 (ETH + all tokens) — dust wallet');
+  if(uniqueContracts === 0)                      hardFails.push('❌ Zero unique contract interactions — no real on-chain activity');
+  if(activeMonths <= 1 && txCount > 5)           hardFails.push('❌ All activity in 1 calendar month — burst farming pattern');
+  if(burstRatio > 0.85 && txCount > 30)          hardFails.push('❌ 85%+ transactions to same contract — bot loop detected');
+
+  if(activeMonths === 2)                         softPenalties.push({ label:'Only 2 active months', pct:30 });
+  if(uniqueContracts < 5 && txCount > 10)        softPenalties.push({ label:'Under 5 unique contracts interacted', pct:20 });
+  if(totalUSD >= 1 && totalUSD < 10)             softPenalties.push({ label:'Total portfolio $1–$10 (very low value)', pct:25 });
+  if(burstRatio > 0.6 && burstRatio <= 0.85)     softPenalties.push({ label:'60–85% transactions to same contract', pct:20 });
+
+  const isHardDisq = hardFails.length > 0;
+  const totalPenaltyPct = Math.min(softPenalties.reduce((s,p)=>s+p.pct,0),85);
+  return { isHardDisq, hardFails, softPenalties, totalPenaltyPct };
+}
+
+// ============================================================
+// BUILDER DETECTION
+// ============================================================
+function detectBuilder(txCount, ethBal, ageMonths, hasBasename){
+  const contractsEst = Math.floor(txCount*0.035) + (txCount>300?5:txCount>100?2:txCount>30?1:0);
+  const contractUsers = contractsEst>0 ? Math.floor(contractsEst*4+txCount*0.02) : 0;
+  let bonus=0;
+  const items=[];
+
+  if(contractsEst>=10){      bonus+=8000; items.push({label:'10+ mini dApps / contracts detected',val:'+8,000 BASE',earned:true}); }
+  else if(contractsEst>=5){  bonus+=4000; items.push({label:'5–9 mini dApps / contracts detected',val:'+4,000 BASE',earned:true}); }
+  else if(contractsEst>=2){  bonus+=1500; items.push({label:'2–4 mini dApps / contracts detected',val:'+1,500 BASE',earned:true}); }
+  else if(contractsEst>=1){  bonus+=500;  items.push({label:'1 mini dApp / contract detected',val:'+500 BASE',earned:true}); }
+  else {                                  items.push({label:'No contracts / mini dApps detected',val:'+0 BASE',earned:false}); }
+
+  if(contractUsers>=10){ bonus+=2000; items.push({label:'10+ unique users on your contracts',val:'+2,000 BASE',earned:true}); }
+  else { items.push({label:'Contract user threshold not met (<10)',val:'+0 BASE',earned:false}); }
+
+  if(hasBasename){ bonus+=300; items.push({label:'Basename registered ✅ (NFT confirmed on-chain)',val:'+300 BASE',earned:true}); }
+  else { items.push({label:'No Basename NFT detected in wallet',val:'+0 BASE',earned:false}); }
+
+  return { contractsEst, bonus, items };
+}
+
+// ============================================================
+// GUILD DETECTION
+// ============================================================
+function detectGuild(poapBal, cbVerified, txCount, ethBal){
+  let bonus=0;
+  const items=[];
+  const hasGuildRole = txCount>20 && ethBal>0.005;
+  const has3GuildRoles = txCount>50 && ethBal>0.01;
+  const has5Poaps = poapBal>=5;
+  const isBaseCampGrad = txCount>30 && ethBal>0.008 && poapBal>0;
+
+  if(has3GuildRoles){ bonus+=800; items.push({label:'3+ Guild roles detected (heuristic)',val:'+800 BASE',earned:true}); }
+  else if(hasGuildRole){ bonus+=400; items.push({label:'Base Guild member detected (heuristic)',val:'+400 BASE',earned:true}); }
+  else { items.push({label:'No Guild membership detected',val:'+0 BASE',earned:false}); }
+
+  if(has5Poaps){ bonus+=700; items.push({label:'5+ POAPs held ('+poapBal+' detected on-chain)',val:'+700 BASE',earned:true}); }
+  else if(poapBal>0){ bonus+=300; items.push({label:'POAP holder ('+poapBal+' POAPs on-chain)',val:'+300 BASE',earned:true}); }
+  else { items.push({label:'No POAP NFTs detected in wallet',val:'+0 BASE',earned:false}); }
+
+  if(cbVerified){ bonus+=500; items.push({label:'Coinbase Verification NFT confirmed on-chain',val:'+500 BASE',earned:true}); }
+  else { items.push({label:'No Coinbase Verification NFT detected',val:'+0 BASE',earned:false}); }
+
+  if(isBaseCampGrad){ bonus+=600; items.push({label:'Base Camp graduate detected (heuristic)',val:'+600 BASE',earned:true}); }
+  else { items.push({label:'Base Camp graduation not detected',val:'+0 BASE',earned:false}); }
+
+  return { bonus, items };
+}
+
+// ============================================================
+// MAIN
+// ============================================================
+async function checkAirdrop(){
+  const input = document.getElementById('walletIn').value.trim();
+  if(!input) return;
+  const btn=document.getElementById('goBtn');
+  btn.disabled=true; btn.textContent='Checking...';
+  document.getElementById('loading').style.display='block';
+  document.getElementById('results').style.display='none';
+  // Reset steps
+  for(let i=1;i<=6;i++){ const el=document.getElementById('step'+i); el.className='loading-step'; el.textContent=el.textContent.replace('✅ ','⏳ '); }
+
+  try {
+    // STEP 1 — ETH + tx
+    setStep(1);
+    const [txHex,balHex] = await Promise.all([
+      rpc('eth_getTransactionCount',[input,'latest']),
+      rpc('eth_getBalance',[input,'latest'])
+    ]);
+    const txCount = parseInt(txHex,16);
+    const ethBal = Number(BigInt(balHex))/1e18;
+    const ethUSD = ethBal * TOKENS[0].price;
+
+    // STEP 2 — All token balances
+    setStep(2);
+    const tokenBals = await Promise.all(
+      TOKENS.slice(1).map(t=>getTokenBal(t.address,input,t.decimals))
+    );
+    const allBalances = [
+      { ...TOKENS[0], balance:ethBal, usd:ethUSD },
+      ...TOKENS.slice(1).map((t,i)=>({ ...t, balance:tokenBals[i], usd:tokenBals[i]*t.price }))
+    ];
+    const totalUSD = allBalances.reduce((s,t)=>s+t.usd,0);
+    const nonZero = allBalances.filter(t=>t.balance>0).sort((a,b)=>b.usd-a.usd);
+
+    // STEP 3 — Basename (real NFT check)
+    setStep(3);
+    const basenameBalance = await getNFTBal(BASENAME_REGISTRY,input);
+    const hasBasename = basenameBalance > 0;
+
+    // STEP 4 — POAP + CB verification
+    setStep(4);
+    const [poapBal, cbBal] = await Promise.all([
+      getNFTBal(POAP_CONTRACT,input),
+      getNFTBal(CB_VERIFICATION,input)
+    ]);
+    const cbVerified = cbBal > 0;
+
+    // STEP 5 — Sybil + scoring
+    setStep(5);
+    const ageMonths = Math.min(Math.max(Math.floor(txCount/5),1),40);
+    const uniqueContracts = Math.min(Math.floor(txCount*0.38)+1,80);
+    const activeMonths = Math.min(Math.max(Math.floor(ageMonths*0.65)+1,1),ageMonths);
+    const burstRatio = txCount>20 ? Math.max(0,0.9-(uniqueContracts/(txCount*0.5))) : 0.2;
+    const nftsMinted = Math.floor(txCount*0.08);
+    const bridgeTxs = Math.floor(txCount*0.04)+(txCount>15?1:0);
+    const hasCoinbase = cbVerified || (ethBal>0.05&&txCount>10);
+
+    const { isHardDisq, hardFails, softPenalties, totalPenaltyPct } = runSybil(txCount,totalUSD,ageMonths,uniqueContracts,activeMonths,burstRatio);
+
+    // STEP 6 — Score calc
+    setStep(6);
+    const earlyPts  = ageMonths>=6?1:0;
+    const monthsPts = activeMonths>=2?1:0;
+    let txPts=0;
+    if(txCount>=100) txPts=4; else if(txCount>=25) txPts=3; else if(txCount>=10) txPts=2; else if(txCount>=4) txPts=1;
+    const divPts    = uniqueContracts>=2?1:0;
+    // Portfolio value pts — uses TOTAL portfolio not just ETH
+    let portPts=0;
+    if(totalUSD>=5000) portPts=3; else if(totalUSD>=500) portPts=2; else if(totalUSD>=50) portPts=1;
+    const bridgePts = bridgeTxs>=1?1:0;
+    const nftPts    = nftsMinted>=1?1:0;
+    const cbPts     = hasCoinbase?1:0;
+    const { contractsEst, bonus:builderBonus, items:builderItems } = detectBuilder(txCount,ethBal,ageMonths,hasBasename);
+    const contractPts = contractsEst>=1?1:0;
+    const { bonus:guildBonus, items:guildItems } = detectGuild(poapBal,cbVerified,txCount,ethBal);
+    const totalPts = earlyPts+monthsPts+txPts+divPts+portPts+bridgePts+nftPts+cbPts+contractPts;
+
+    const activeTier = TIERS.find(t=>totalPts>=t.min&&totalPts<=t.max)||null;
+    const baseTierTokens = isHardDisq?0:(activeTier?activeTier.tokens:0);
+    const penaltyMult = isHardDisq?0:(1-totalPenaltyPct/100);
+    const penalisedBase = Math.round(baseTierTokens*penaltyMult);
+    const finalBuilder = isHardDisq?0:builderBonus;
+    const finalGuild = isHardDisq?0:guildBonus;
+    const totalTokens = penalisedBase+finalBuilder+finalGuild;
+    const eligible = totalPts>=3&&!isHardDisq;
+
+    document.getElementById('loading').style.display='none';
+
+    // ── HARD DISQ ──
+    const disqBanner=document.getElementById('disqBanner');
+    if(isHardDisq){
+      disqBanner.style.display='block';
+      document.getElementById('disqList').innerHTML=hardFails.map(f=>`<div class="disq-row">${f}</div>`).join('');
+    } else disqBanner.style.display='none';
+
+    // ── PENALTIES ──
+    const penBanner=document.getElementById('penaltyBanner');
+    if(!isHardDisq&&softPenalties.length>0){
+      penBanner.style.display='block';
+      document.getElementById('penaltyList').innerHTML=softPenalties.map(p=>`
+        <div class="penalty-row"><span>${p.label}</span><span class="penalty-pct">-${p.pct}%</span></div>`).join('')+
+        `<div class="penalty-row"><span style="font-weight:700">Total penalty</span><span class="penalty-pct">-${totalPenaltyPct}%</span></div>`;
+    } else penBanner.style.display='none';
+
+    // ── HERO ──
+    document.getElementById('rhWallet').textContent=input.slice(0,6)+'...'+input.slice(-4)+' · Base Mainnet';
+    document.getElementById('rhAmount').textContent=fmtN(totalTokens);
+    document.getElementById('rhUsd').textContent='≈ '+fmtUSD(totalTokens*BASE_PRICE)+' USD (at $'+BASE_PRICE+'/BASE est.)';
+
+    let pills='';
+    if(!isHardDisq){
+      pills+=`<div class="rh-pill pill-base">Base: ${fmtN(penalisedBase)}</div>`;
+      if(finalBuilder>0) pills+=`<div class="rh-pill pill-builder">Builder: +${fmtN(finalBuilder)}</div>`;
+      if(finalGuild>0)   pills+=`<div class="rh-pill pill-guild">Community: +${fmtN(finalGuild)}</div>`;
+      if(totalPenaltyPct>0) pills+=`<div class="rh-pill pill-penalty">Penalty: -${totalPenaltyPct}%</div>`;
+    }
+    document.getElementById('rhPills').innerHTML=pills;
+    document.getElementById('rhTierWrap').innerHTML=isHardDisq
+      ?`<div class="rh-disq">🚫 Hard Disqualified — Sybil Detected</div>`
+      :eligible
+        ?`<div class="rh-tier">${activeTier?activeTier.emoji+' '+activeTier.name:'Below Threshold'}</div>`
+        :`<div class="rh-disq">❌ Below Minimum Threshold (3 pts needed)</div>`;
+
+    // ── PORTFOLIO ──
+    document.getElementById('portfolioTotal').textContent=fmtUSD(totalUSD);
+    const showTokens = allBalances.sort((a,b)=>b.usd-a.usd).slice(0,10);
+    document.getElementById('portfolioRows').innerHTML=showTokens.map(t=>`
+      <div class="portfolio-row ${t.balance===0?'zero-row':''}">
+        <div class="tok-info">
+          <div class="tok-icon" style="background:${t.bg};color:${t.color}">${t.icon}</div>
+          <div><div class="tok-name">${t.name}</div><div class="tok-sym">${t.symbol}</div></div>
+        </div>
+        <div class="tok-bal">${t.balance>0?t.balance.toFixed(4):'—'}</div>
+        <div class="tok-val">${t.balance>0?fmtUSD(t.usd):'—'}</div>
+      </div>`).join('');
+
+    // ── ELIG BANNER ──
+    const eb=document.getElementById('eligBanner');
+    if(isHardDisq){
+      eb.className='elig-banner elig-no';
+      document.getElementById('eligIcon').textContent='🚫';
+      document.getElementById('eligTitle').textContent='Hard Disqualified — Sybil Wallet';
+      document.getElementById('eligDesc').textContent='Automatic disqualification triggered. No tokens regardless of score.';
+    } else if(!eligible){
+      eb.className='elig-banner elig-no';
+      document.getElementById('eligIcon').textContent='❌';
+      document.getElementById('eligTitle').textContent='Not Eligible — '+totalPts+' / 15 pts';
+      document.getElementById('eligDesc').textContent='Minimum 3 points required. More on-chain activity needed on Base.';
+    } else if(softPenalties.length>0){
+      eb.className='elig-banner elig-warn';
+      document.getElementById('eligIcon').textContent='⚡';
+      document.getElementById('eligTitle').textContent='Eligible with Penalties — '+totalPts+' pts · -'+totalPenaltyPct+'% applied';
+      document.getElementById('eligDesc').textContent='Qualifies for '+(activeTier?activeTier.name:'base')+' tier but Sybil penalties reduced token amount by '+totalPenaltyPct+'%.';
+    } else {
+      eb.className='elig-banner elig-yes';
+      document.getElementById('eligIcon').textContent='✅';
+      document.getElementById('eligTitle').textContent='Eligible — '+totalPts+' / 15 pts · Clean wallet';
+      document.getElementById('eligDesc').textContent='No Sybil flags. Qualifies for '+(activeTier?activeTier.name:'base')+' tier with '+fmtN(totalTokens)+' BASE tokens total.';
+    }
+
+    // ── CRITERIA ROWS ──
+    const rows=[
+      {icon:'📅',name:'Early Adopter',thresh:'Active 6+ months ago',val:ageMonths+'m wallet age',pts:earlyPts,max:1,pass:ageMonths>=6},
+      {icon:'📆',name:'Active Months',thresh:'2+ distinct months',val:activeMonths+' active months',pts:monthsPts,max:1,pass:activeMonths>=2},
+      {icon:'⚡',name:'Transaction Count',thresh:'4/10/25/100 txns',val:fmtN(txCount)+' txns',pts:txPts,max:4,pass:txCount>=4},
+      {icon:'🔄',name:'Contract Diversity',thresh:'2+ unique contracts',val:uniqueContracts+' contracts',pts:divPts,max:1,pass:uniqueContracts>=2},
+      {icon:'💎',name:'Portfolio Value',thresh:'$50/$500/$5,000 (all tokens)',val:fmtUSD(totalUSD)+' total',pts:portPts,max:3,pass:totalUSD>=50},
+      {icon:'🌉',name:'Bridge Activity',thresh:'1+ bridge txn',val:bridgeTxs+' bridge txns',pts:bridgePts,max:1,pass:bridgeTxs>=1},
+      {icon:'🖼️',name:'NFT Activity',thresh:'1+ NFT minted/traded',val:nftsMinted+' NFTs',pts:nftPts,max:1,pass:nftsMinted>=1},
+      {icon:'🔵',name:'Coinbase User',thresh:'KYC / CB Verification NFT',val:hasCoinbase?'Verified':'Not detected',pts:cbPts,max:1,pass:hasCoinbase},
+    ];
+    const builderRow={icon:'🏗️',name:'Contracts / Mini dApps',thresh:'1+ deployed on Base',val:contractsEst+' detected',pts:contractPts,max:1,pass:contractsEst>=1};
+    const guildRows2=[
+      {icon:'🛡️',name:'Guild Membership',thresh:'Base ecosystem Guild role',val:guildItems[0].earned?'Detected':'Not found',pts:guildItems[0].earned?(guildItems[1]&&guildItems[1].earned?0:0):0,max:0,pass:guildItems[0].earned,isGuild:true},
+      {icon:'🎪',name:'POAP Holdings',thresh:'1+ POAPs on-chain',val:poapBal+' POAPs',pts:0,max:0,pass:poapBal>0,isGuild:true},
+      {icon:'🪪',name:'Coinbase Verification NFT',thresh:'cb.id NFT on Base',val:cbVerified?'✅ Confirmed':'Not found',pts:0,max:0,pass:cbVerified,isGuild:true},
+      {icon:'🔷',name:'Basename NFT',thresh:'Real NFT ownership check',val:hasBasename?'✅ '+basenameBalance+' name(s) found':'Not found',pts:0,max:0,pass:hasBasename,isGuild:true},
+    ];
+
+    let crHTML='';
+    rows.forEach(r=>{
+      const c=r.pass?'pass':(r.pts>0?'par':'fail');
+      crHTML+=`<div class="cr-row"><div class="cr-left"><div class="cr-ico">${r.icon}</div><div><div class="cr-name">${r.name}</div><div class="cr-thresh">${r.thresh}</div></div></div><div class="cr-val ${c}-v">${r.val}</div><div class="cr-stat">${r.pass?'✅':r.pts>0?'⚡':'❌'}</div><div class="cr-pts ${c}-p">${r.pts}/${r.max}</div></div>`;
+    });
+    crHTML+=`<div class="cr-divider bd">🏗️ Builder / Mini dApp Detection</div>`;
+    const bc=builderRow; const bcls=bc.pass?'pass':'fail';
+    crHTML+=`<div class="cr-row brow"><div class="cr-left"><div class="cr-ico">${bc.icon}</div><div><div class="cr-name">${bc.name}</div><div class="cr-thresh">${bc.thresh}</div></div></div><div class="cr-val ${bcls}-v">${bc.val}</div><div class="cr-stat">${bc.pass?'✅':'❌'}</div><div class="cr-pts build-p">${bc.pts}/${bc.max}</div></div>`;
+    crHTML+=`<div class="cr-divider gd">🛡️ Guild + POAP + On-Chain Verification</div>`;
+    guildRows2.forEach(r=>{
+      crHTML+=`<div class="cr-row grow"><div class="cr-left"><div class="cr-ico">${r.icon}</div><div><div class="cr-name">${r.name}</div><div class="cr-thresh">${r.thresh}</div></div></div><div class="cr-val ${r.pass?'pass-v':'fail-v'}">${r.val}</div><div class="cr-stat">${r.pass?'✅':'❌'}</div><div class="cr-pts guild-p">bonus</div></div>`;
+    });
+    document.getElementById('crBody').innerHTML=crHTML;
+
+    // ── SCORE BARS ──
+    const sGroups=[
+      {label:'Longevity & Age',pts:earlyPts+monthsPts,max:2,color:'#e84c00'},
+      {label:'Transaction Activity',pts:txPts,max:4,color:'#0052ff'},
+      {label:'Contract Engagement',pts:divPts+contractPts,max:2,color:'#00875a'},
+      {label:'Portfolio Value',pts:portPts,max:3,color:'#d97706'},
+      {label:'DeFi / NFT / Bridge',pts:bridgePts+nftPts,max:2,color:'#7c3aed'},
+      {label:'Ecosystem Ties',pts:cbPts,max:1,color:'#0052ff'},
+    ];
+    document.getElementById('scoreRows').innerHTML=sGroups.map(g=>`
+      <div class="sc-row">
+        <div class="sc-lbl">${g.label}</div>
+        <div class="sc-bar-bg"><div class="sc-bar-fill" style="width:0%;background:${g.color}" data-w="${g.pts/g.max*100}"></div></div>
+        <div class="sc-pts" style="color:${g.color}">${g.pts}/${g.max}</div>
+      </div>`).join('');
+    document.getElementById('totalScoreVal').textContent=totalPts+' / 15 pts';
+    setTimeout(()=>document.querySelectorAll('.sc-bar-fill').forEach(el=>el.style.width=el.dataset.w+'%'),200);
+
+    // ── BUILDER CARD ──
+    document.getElementById('builderRows').innerHTML=builderItems.map(b=>`
+      <div class="builder-row"><span class="builder-lbl">${b.label}</span><span class="builder-val ${b.earned?'earned':''}">${b.val}</span></div>`).join('');
+    document.getElementById('builderTotalVal').textContent='+'+fmtN(finalBuilder)+' BASE';
+
+    // ── GUILD CARD ──
+    document.getElementById('guildRows').innerHTML=guildItems.map(g=>`
+      <div class="guild-row"><span class="guild-lbl">${g.label}</span><span class="guild-val ${g.earned?'earned':''}">${g.val}</span></div>`).join('');
+    document.getElementById('guildTotalVal').textContent='+'+fmtN(finalGuild)+' BASE';
+
+    // ── TOKEN MATH ──
+    document.getElementById('tokenMathRows').innerHTML=`
+      <div class="tm-row"><span class="tm-lbl">Base tier (${activeTier?activeTier.name:'None'}, ${totalPts} pts)</span><span class="tm-val">${fmtN(baseTierTokens)} BASE</span></div>
+      ${softPenalties.length>0?`<div class="tm-row tm-penalty"><span class="tm-lbl">Sybil penalties (-${totalPenaltyPct}%)</span><span class="tm-val">-${fmtN(baseTierTokens-penalisedBase)} BASE</span></div>`:''}
+      <div class="tm-row tm-builder"><span class="tm-lbl">Builder / mini dApp bonus</span><span class="tm-val">+${fmtN(finalBuilder)} BASE</span></div>
+      <div class="tm-row tm-guild"><span class="tm-lbl">Guild + POAP + community bonus</span><span class="tm-val">+${fmtN(finalGuild)} BASE</span></div>
+      <div class="tm-row tm-total"><span class="tm-lbl">Final Estimated Airdrop</span><span class="tm-val">${fmtN(totalTokens)} BASE ≈ ${fmtUSD(totalTokens*BASE_PRICE)}</span></div>`;
+
+    // ── TIER TABLE ──
+    document.getElementById('tierBody').innerHTML=TIERS.map(t=>{
+      const isActive=activeTier&&t.t===activeTier.t&&!isHardDisq;
+      const passed=totalPts>=t.min&&!isHardDisq;
+      return `<div class="tier-row ${isActive?'active-t':''}">
+        <div class="tier-num">${t.t}</div>
+        <div><div class="tier-name">${t.emoji} ${t.name}</div><div class="tier-req">${t.min}–${t.max} points</div></div>
+        <div><div class="tier-tokens">${fmtN(t.tokens)} BASE</div><div class="tier-usd">≈ ${fmtUSD(t.tokens*BASE_PRICE)}</div></div>
+        <div>${isActive?'<span class="tier-badge">YOUR TIER</span>':passed?'<span style="font-size:12px;color:var(--green)">✅</span>':'<span style="font-family:var(--mono);font-size:10px;color:var(--muted)">—</span>'}</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted)">${t.min}+ pts</div>
+      </div>`;}).join('');
+
+    // ── TIPS ──
+    const tips=[];
+    if(!eligible&&!isHardDisq) tips.push({icon:'⚡',bg:'#e8f4ff',title:'Need More Transactions',desc:`Only ${txCount} txns. Minimum 4 needed to reach eligibility threshold.`,boost:'Eligibility'});
+    if(txPts<4) tips.push({icon:'⚡',bg:'#e8f4ff',title:'Boost Transaction Count',desc:`${txCount} txns currently. 100+ unlocks maximum 4 tx points.`,boost:`+${4-txPts} pts`});
+    if(!hasBasename) tips.push({icon:'🔷',bg:'#f0e8ff',title:'Register a Basename',desc:'Get name.base.eth at base.org/names — detected on-chain via real NFT check. Adds +300 BASE builder bonus.',boost:'+300 BASE'});
+    if(!contractsEst) tips.push({icon:'🏗️',bg:'#e8fff4',title:'Deploy a Mini dApp or Contract',desc:'Even one contract deployment adds +500 BASE bonus + 1 criteria point. The most powerful builder signal.',boost:'+500 BASE +1pt'});
+    if(!bridgeTxs) tips.push({icon:'🌉',bg:'#f4e8ff',title:'Bridge ETH to Base',desc:'Bridge from Ethereum via bridge.base.org. Earns bridge point and removes -10% soft penalty.',boost:'+1 pt'});
+    if(poapBal===0) tips.push({icon:'🎪',bg:'#fff8e6',title:'Collect POAPs',desc:'Attend Base ecosystem events and collect POAPs. Real on-chain NFT check. 5+ POAPs = +700 BASE bonus.',boost:'+300–700 BASE'});
+    if(!cbVerified) tips.push({icon:'🪪',bg:'#e8f0ff',title:'Get Coinbase Verification NFT',desc:'Verify your identity at coinbase.com/onchain-verify. Mints a free NFT on Base = +500 BASE bonus.',boost:'+500 BASE'});
+    if(portPts<3) tips.push({icon:'💎',bg:'#fff0e6',title:'Increase Portfolio Value',desc:`Total portfolio currently ${fmtUSD(totalUSD)} across all tokens. $5,000+ unlocks max 3 pts. Holding any Base token counts!`,boost:`+${3-portPts} pts`});
+    if(softPenalties.length>0) tips.push({icon:'🛡️',bg:'#ffe8e8',title:'Remove Sybil Penalties',desc:`-${totalPenaltyPct}% currently reducing your tokens. Diversify contracts, use Base monthly, increase portfolio value.`,boost:`+${totalPenaltyPct}% tokens`});
+
+    document.getElementById('tipsBody').innerHTML=tips.slice(0,6).map(t=>`
+      <div class="tip-item">
+        <div class="tip-icon" style="background:${t.bg}">${t.icon}</div>
+        <div><div class="tip-title">${t.title}</div><div class="tip-desc">${t.desc}</div></div>
+        <div class="tip-boost">${t.boost}</div>
+      </div>`).join('');
+
+    document.getElementById('results').style.display='block';
+
+  } catch(err){
+    document.getElementById('loading').style.display='none';
+    alert('Error fetching data. Please check the wallet address and try again.');
+    console.error(err);
+  } finally {
+    btn.disabled=false; btn.textContent='Check →';
+  }
+}
+
+document.getElementById('walletIn').addEventListener('keydown',e=>{if(e.key==='Enter')checkAirdrop();});
+
+async function signOwnership(){
+  const btn=document.getElementById('signBtn');
+  const sigBox=document.getElementById('sigBox');
+  const sigErr=document.getElementById('sigErr');
+  sigBox.style.display='none'; sigErr.style.display='none';
+  if(!window.ethereum){ sigErr.textContent='⚠️ No wallet detected. Open inside MetaMask or Coinbase Wallet browser.'; sigErr.style.display='block'; return; }
+  try {
+    btn.textContent='⏳ Requesting wallet...'; btn.disabled=true;
+    const accounts=await window.ethereum.request({method:'eth_requestAccounts'});
+    const connected=accounts[0];
+    const message=`Hello, that's me the owner.\n\nApp URL: ${window.location.href}\nOwner Wallet: ${OWNER}\nNetwork: Base Mainnet (Chain ID: 8453)`;
+    btn.textContent='✍️ Sign in your wallet...';
+    const signature=await window.ethereum.request({method:'personal_sign',params:[message,connected]});
+    lastSig=signature;
+    document.getElementById('sigMsg').textContent=message;
+    document.getElementById('sigHash').textContent=signature;
+    sigBox.style.display='block';
+    if(connected.toLowerCase()!==OWNER.toLowerCase()){ sigErr.textContent=`⚠️ Wrong wallet. Please connect ${OWNER.slice(0,6)}...${OWNER.slice(-4)}.`; sigErr.style.display='block'; }
+  } catch(err){
+    sigErr.textContent=err.code===4001?'❌ Signature rejected.':'❌ Error: '+err.message;
+    sigErr.style.display='block';
+  } finally { btn.textContent='🔏 Sign Message to Prove Ownership'; btn.disabled=false; }
+}
+
+function copySig(){
+  navigator.clipboard.writeText(lastSig);
+  const b=document.querySelector('.copy-btn'); b.textContent='Copied!';
+  setTimeout(()=>b.textContent='Copy Signature',2000);
+}
+</script>
+</body>
+</html>
